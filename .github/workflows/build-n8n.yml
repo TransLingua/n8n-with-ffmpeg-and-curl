@@ -2,8 +2,8 @@ name: Build and Push n8n Custom Image
 
 on:
   schedule:
-    # Check for updates daily at midnight
-    - cron: '0 0 * * *'
+    # Check for updates every 6 hours
+    - cron: '0 */6 * * *'
   # Allow manual trigger
   workflow_dispatch:
   # Run on push to main branch
