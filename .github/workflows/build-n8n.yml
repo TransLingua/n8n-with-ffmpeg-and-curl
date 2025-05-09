@@ -1,0 +1,76 @@
+name: Build and Push n8n Custom Image
+
+on:
+  schedule:
+    # Check for updates daily at midnight
+    - cron: '0 0 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+  # Run on push to main branch
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.n8n-version'
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get latest n8n version
+        id: get-version
+        run: |
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/n8n-io/n8n/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+          echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
+          echo "Latest n8n version: $LATEST_VERSION"
+          
+          # Create version file if it doesn't exist
+          if [ ! -f .n8n-version ]; then
+            echo "0.0.0" > .n8n-version
+          fi
+          
+          CURRENT_VERSION=$(cat .n8n-version)
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          echo "Current tracked version: $CURRENT_VERSION"
+          
+          if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "UPDATE_NEEDED=true" >> $GITHUB_ENV
+          else
+            echo "UPDATE_NEEDED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Docker Buildx
+        if: env.UPDATE_NEEDED == 'true'
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        if: env.UPDATE_NEEDED == 'true'
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        if: env.UPDATE_NEEDED == 'true'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-custom:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-custom:${{ env.LATEST_VERSION }}
+          build-args: |
+            N8N_VERSION=${{ env.LATEST_VERSION }}
+
+      - name: Update version file
+        if: env.UPDATE_NEEDED == 'true'
+        run: |
+          echo "${{ env.LATEST_VERSION }}" > .n8n-version
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git add .n8n-version
+          git commit -m "Update to n8n version ${{ env.LATEST_VERSION }}"
+          git push
