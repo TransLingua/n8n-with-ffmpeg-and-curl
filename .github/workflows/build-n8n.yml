@@ -62,8 +62,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-custom:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-custom:${{ env.LATEST_VERSION }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-with-ffmpeg-and-curl:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-with-ffmpeg-and-curl:${{ env.LATEST_VERSION }}
           build-args: |
             N8N_VERSION=${{ env.LATEST_VERSION }}
 
